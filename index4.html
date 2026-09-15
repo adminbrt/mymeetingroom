@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meeting Room Asset & Maintenance Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #EFEFEC; color: #1C1F1E; }
+    .font-mono { font-family: 'IBM Plex Mono', monospace; }
+  </style>
+</head>
+<body class="p-6">
+  <div class="max-w-7xl mx-auto space-y-6">
+    <!-- Header -->
+    <header class="flex flex-col md:flex-row md:items-center justify-between border-b border-gray-300 pb-4">
+      <div>
+        <div class="font-mono text-xs text-emerald-800 tracking-wider uppercase font-semibold flex items-center gap-2">
+          FACILITIES & AV ASSET MANAGEMENT
+          <span id="syncStatus" class="inline-block w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" title="กำลังโหลดข้อมูล..."></span>
+        </div>
+        <h1 class="text-2xl font-bold text-gray-900 mt-1">Meeting Room & Asset Dashboard</h1>
+        <p class="text-xs text-gray-500 mt-1">ระบบบริหารจัดการห้องประชุม อุปกรณ์เอวี ประวัติการซ่อมบำรุง และรูปภาพอุปกรณ์</p>
+      </div>
+      <div id="kpi-summary" class="mt-4 md:mt-0 flex gap-4 text-right"></div>
+    </header>
+
+    <!-- Filters & Controls -->
+    <div class="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+      <div class="flex flex-wrap gap-3 items-center">
+        <div>
+          <label class="block text-[10px] font-bold uppercase text-gray-500 mb-1">อาคาร</label>
+          <select id="buildingFilter" onchange="onBuildingChange()" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-md p-2 focus:ring-emerald-500 focus:border-emerald-500">
+            <option value="All">ทุกอาคาร (All Buildings)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold uppercase text-gray-500 mb-1">ชื่อห้องประชุม</label>
+          <select id="roomFilter" onchange="filterData()" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-md p-2 focus:ring-emerald-500 focus:border-emerald-500">
+            <option value="All">ทุกห้องประชุม (All Rooms)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[10px] font-bold uppercase text-gray-500 mb-1">ประเภทอุปกรณ์</label>
+          <select id="typeFilter" onchange="filterData()" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-md p-2 focus:ring-emerald-500 focus:border-emerald-500">
+            <option value="All">ทุกประเภทอุปกรณ์ (All Types)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 w-full md:w-auto">
+        <input type="text" id="searchInput" onkeyup="filterData()" placeholder="ค้นหาอุปกรณ์ หรือรหัส..." class="w-full md:w-64 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-md p-2 focus:ring-emerald-500 focus:border-emerald-500 self-end">
+        <button onclick="fetchSheetData()" class="bg-emerald-700 hover:bg-emerald-800 text-white text-xs px-3 py-2.5 rounded font-medium self-end transition flex items-center gap-1">
+          🔄 รีเฟรชข้อมูล
+        </button>
+      </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+        <h3 class="text-sm font-bold text-gray-700 mb-3">มูลค่าทรัพย์สินตามอาคาร (บาท)</h3>
+        <div class="h-48"><canvas id="chartBuilding"></canvas></div>
+      </div>
+      <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+        <h3 class="text-sm font-bold text-gray-700 mb-3">สัดส่วนประเภทอุปกรณ์</h3>
+        <div class="h-48"><canvas id="chartType"></canvas></div>
+      </div>
+      <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+        <h3 class="text-sm font-bold text-gray-700 mb-3">ค่าใช้จ่ายการซ่อมบำรุงตาม GL</h3>
+        <div class="h-48"><canvas id="chartGL"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Content Tabs -->
+    <div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      <div class="flex border-b border-gray-200 bg-gray-50">
+        <button id="tabRoomsBtn" onclick="switchTab('rooms')" class="px-6 py-3 font-semibold text-sm border-b-2 border-emerald-700 text-emerald-800">
+          ภาพรวมห้องประชุม (<span id="countRooms">0</span>)
+        </button>
+        <button id="tabAssetsBtn" onclick="switchTab('assets')" class="px-6 py-3 font-semibold text-sm text-gray-500 border-b-2 border-transparent hover:text-gray-700">
+          รายการอุปกรณ์ทั้งหมด (<span id="countAssets">0</span>)
+        </button>
+        <button id="tabMaintBtn" onclick="switchTab('maint')" class="px-6 py-3 font-semibold text-sm text-gray-500 border-b-2 border-transparent hover:text-gray-700">
+          ประวัติการซ่อมบำรุง (<span id="countMaint">0</span>)
+        </button>
+      </div>
+
+      <div id="tabRooms" class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+
+      <!-- Assets Table Extended with Image Column next to Asset ID -->
+      <div id="tabAssets" class="hidden overflow-x-auto">
+        <table class="w-full text-left text-sm text-gray-600">
+          <thead class="bg-gray-100 text-xs font-bold uppercase text-gray-600 border-b border-gray-200">
+            <tr>
+              <th class="p-3">Asset ID</th>
+              <th class="p-3 text-center">รูปภาพ</th>
+              <th class="p-3">ชื่ออุปกรณ์</th>
+              <th class="p-3">ประเภท</th>
+              <th class="p-3">มูลค่า (บาท)</th>
+              <th class="p-3">ใช้งานมาแล้ว</th>
+              <th class="p-3">หมดอายุปี</th>
+              <th class="p-3">สถานะประกัน</th>
+              <th class="p-3">ข้อเสนอแนะเปลี่ยนใหม่</th>
+            </tr>
+          </thead>
+          <tbody id="assetTableBody" class="divide-y divide-gray-200"></tbody>
+        </table>
+      </div>
+
+      <div id="tabMaint" class="hidden overflow-x-auto">
+        <table class="w-full text-left text-sm text-gray-600">
+          <thead class="bg-gray-100 text-xs font-bold uppercase text-gray-600 border-b border-gray-200">
+            <tr>
+              <th class="p-3">WO ID</th>
+              <th class="p-3">วันที่</th>
+              <th class="p-3">รายการ</th>
+              <th class="p-3">ห้อง / อาคาร</th>
+              <th class="p-3">ประเภทงานซ่อม</th>
+              <th class="p-3">ผู้รับเหมา</th>
+              <th class="p-3">ค่าใช้จ่าย (บาท)</th>
+              <th class="p-3">GL</th>
+            </tr>
+          </thead>
+          <tbody id="maintTableBody" class="divide-y divide-gray-200"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SHEET_ID = '1rrJeDni6DpIgJGQbymZws-ZBhaQjhXCwKIqx3S9kUDs';
+    const CSV_URL_ROOMS = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Rooms`;
+    const CSV_URL_ASSETS = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Assets`;
+    const CSV_URL_MAINT = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Maintenance`;
+
+    let DATA = { rooms: [], assets: [], maintenance: [] };
+    let chartBuilding, chartType, chartGL;
+
+    function fetchSheetData() {
+      const syncDot = document.getElementById("syncStatus");
+      syncDot.className = "inline-block w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse";
+
+      Promise.all([
+        fetchCSV(CSV_URL_ROOMS),
+        fetchCSV(CSV_URL_ASSETS),
+        fetchCSV(CSV_URL_MAINT)
+      ]).then(([rooms, assets, maintenance]) => {
+        DATA.rooms = rooms;
+        DATA.assets = assets;
+        DATA.maintenance = maintenance;
+
+        syncDot.className = "inline-block w-2.5 h-2.5 rounded-full bg-emerald-500";
+        populateBuildingFilter();
+        populateTypeFilter();
+        onBuildingChange();
+      }).catch(err => {
+        console.error("Error fetching Google Sheets:", err);
+        syncDot.className = "inline-block w-2.5 h-2.5 rounded-full bg-red-500";
+        alert("ไม่สามารถดึงข้อมูลได้! กรุณาเช็กชื่อ Tab ด้านล่างของ Google Sheets ให้ตรงกับ 'Rooms', 'Assets' และ 'Maintenance' ครับ");
+      });
+    }
+
+    function fetchCSV(url) {
+      return new Promise((resolve, reject) => {
+        Papa.parse(url, {
+          download: true,
+          header: true,
+          dynamicTyping: true,
+          complete: (results) => resolve(results.data),
+          error: (err) => reject(err)
+        });
+      });
+    }
+
+    function populateBuildingFilter() {
+      const buildings = [...new Set(DATA.rooms.map(r => r.Building).filter(Boolean))];
+      const bSelect = document.getElementById("buildingFilter");
+      bSelect.innerHTML = `<option value="All">ทุกอาคาร (All Buildings)</option>`;
+      buildings.forEach(b => bSelect.innerHTML += `<option value="${b}">${b}</option>`);
+    }
+
+    function populateTypeFilter() {
+      const types = [...new Set(DATA.assets.map(a => a.AssetTypeCategory).filter(Boolean))];
+      const tSelect = document.getElementById("typeFilter");
+      tSelect.innerHTML = `<option value="All">ทุกประเภทอุปกรณ์ (All Types)</option>`;
+      types.forEach(t => tSelect.innerHTML += `<option value="${t}">${t}</option>`);
+    }
+
+    function onBuildingChange() {
+      const selectedBuilding = document.getElementById("buildingFilter").value;
+      const roomSelect = document.getElementById("roomFilter");
+      roomSelect.innerHTML = `<option value="All">ทุกห้องประชุม (All Rooms)</option>`;
+
+      const availableRooms = DATA.rooms.filter(r => selectedBuilding === "All" || r.Building === selectedBuilding);
+      availableRooms.forEach(r => {
+        if(r.RoomID && r.RoomName) roomSelect.innerHTML += `<option value="${r.RoomID}">${r.RoomName} (${r.Building})</option>`;
+      });
+
+      filterData();
+    }
+
+    function filterData() {
+      const bVal = document.getElementById("buildingFilter").value;
+      const rVal = document.getElementById("roomFilter").value;
+      const tVal = document.getElementById("typeFilter").value;
+      const sVal = document.getElementById("searchInput").value.toLowerCase();
+
+      const filteredRooms = DATA.rooms.filter(r => {
+        if(!r.RoomID) return false;
+        const matchB = bVal === "All" || r.Building === bVal;
+        const matchR = rVal === "All" || String(r.RoomID) === String(rVal);
+        return matchB && matchR;
+      });
+
+      const allowedRoomIds = new Set(filteredRooms.map(r => String(r.RoomID)));
+
+      const filteredMaint = DATA.maintenance.filter(m => m.WoID && allowedRoomIds.has(String(m.RoomID)));
+      const activeAssetIdsInRooms = new Set(filteredMaint.map(m => String(m.AssetID)));
+
+      const filteredAssets = DATA.assets.filter(a => {
+        if(!a.AssetID) return false;
+        const matchesType = tVal === "All" || a.AssetTypeCategory === tVal;
+        const matchesSearch = (a.AssetName || "").toLowerCase().includes(sVal) || (String(a.AssetID) || "").toLowerCase().includes(sVal);
+        const matchesRoomFilter = rVal === "All" && bVal === "All" ? true : activeAssetIdsInRooms.has(String(a.AssetID));
+        return matchesType && matchesSearch && matchesRoomFilter;
+      });
+
+      updateKPIs(filteredAssets, filteredMaint, filteredRooms);
+      renderRoomCards(filteredRooms, filteredAssets, filteredMaint);
+      renderAssetTable(filteredAssets);
+      renderMaintTable(filteredMaint);
+      renderCharts(filteredAssets, filteredMaint);
+    }
+
+    function updateKPIs(assets, maint, rooms) {
+      const totalAssetVal = assets.reduce((s, a) => s + (Number(a.AssetValue) || 0), 0);
+      const totalMaintCost = maint.reduce((s, m) => s + (Number(m.Cost) || 0), 0);
+
+      document.getElementById("kpi-summary").innerHTML = `
+        <div class="bg-white p-2 px-3 rounded border border-gray-200 shadow-sm">
+          <div class="text-xs text-gray-500">มูลค่าทรัพย์สินรวม</div>
+          <div class="text-base font-bold font-mono text-emerald-700">฿${totalAssetVal.toLocaleString()}</div>
+        </div>
+        <div class="bg-white p-2 px-3 rounded border border-gray-200 shadow-sm">
+          <div class="text-xs text-gray-500">ค่าซ่อม/ติดตั้งรวม</div>
+          <div class="text-base font-bold font-mono text-amber-600">฿${totalMaintCost.toLocaleString()}</div>
+        </div>
+      `;
+
+      document.getElementById("countRooms").innerText = rooms.length;
+      document.getElementById("countAssets").innerText = assets.length;
+      document.getElementById("countMaint").innerText = maint.length;
+    }
+
+    function renderRoomCards(rooms, assets, maint) {
+      const container = document.getElementById("tabRooms");
+      container.innerHTML = "";
+
+      rooms.forEach(r => {
+        const roomMaint = maint.filter(m => String(m.RoomID) === String(r.RoomID));
+        const roomAssetIds = new Set(roomMaint.map(m => String(m.AssetID)));
+        const roomAssets = assets.filter(a => roomAssetIds.has(String(a.AssetID)));
+        const totalVal = roomAssets.reduce((s, a) => s + (Number(a.AssetValue) || 0), 0);
+
+        let assetListHtml = roomAssets.map(a => `
+          <li class="flex justify-between items-center text-xs py-1 border-b border-gray-100">
+            <span class="text-gray-700 truncate max-w-[200px]" title="${a.AssetName}">${a.AssetName}</span>
+            <span class="font-mono text-gray-500">฿${(Number(a.AssetValue) || 0).toLocaleString()}</span>
+          </li>
+        `).join("");
+
+        if (roomAssets.length === 0) {
+          assetListHtml = `<li class="text-xs text-gray-400 italic py-2">ไม่มีรายการอุปกรณ์ที่ระบุ</li>`;
+        }
+
+        container.innerHTML += `
+          <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+            <div class="flex justify-between items-start mb-2">
+              <div>
+                <span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">${r.Building} · ชั้น ${r.Floor}</span>
+                <h3 class="text-base font-bold text-gray-800 mt-1">${r.RoomName}</h3>
+              </div>
+              <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded font-medium">${r.Capacity ? r.Capacity + ' ที่นั่ง' : '-'}</span>
+            </div>
+            <div class="my-3 pt-2 border-t border-gray-100">
+              <div class="text-xs font-semibold text-gray-500 mb-1 flex justify-between">
+                <span>อุปกรณ์ประจำห้อง (${roomAssets.length})</span>
+                <span class="font-mono text-emerald-800">รวม ฿${totalVal.toLocaleString()}</span>
+              </div>
+              <ul class="max-h-36 overflow-y-auto pr-1">${assetListHtml}</ul>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    function renderAssetTable(assets) {
+      const tbody = document.getElementById("assetTableBody");
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear();
+
+      tbody.innerHTML = assets.map(a => {
+        let usedYearsText = '-';
+        let expireYearText = '-';
+        let warrantyStatusBadge = '<span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-500">-</span>';
+        let replacementRecommendation = '<span class="text-xs px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">สภาพดี</span>';
+
+        if (a.InstallDate) {
+          const installDate = new Date(a.InstallDate);
+          if (!isNaN(installDate.getTime())) {
+            const installYear = installDate.getFullYear();
+            const yearsUsed = Math.max(0, currentYear - installYear);
+            usedYearsText = `${yearsUsed} ปี`;
+
+            if (a.UsefulLifeYear && !isNaN(Number(a.UsefulLifeYear))) {
+              const usefulLife = Number(a.UsefulLifeYear);
+              const expireYear = installYear + usefulLife;
+              expireYearText = `${expireYear}`;
+
+              if (currentYear >= expireYear) {
+                replacementRecommendation = `<span class="text-xs px-2 py-0.5 rounded bg-red-100 text-red-800 font-bold">⚠️ ควรพิจารณาเปลี่ยนใหม่</span>`;
+              } else if (expireYear - currentYear <= 1) {
+                replacementRecommendation = `<span class="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold">⚡ ใกล้หมดอายุใช้งาน</span>`;
+              } else {
+                replacementRecommendation = `<span class="text-xs px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">พร้อมใช้งานปกติ</span>`;
+              }
+            }
+          }
+        }
+
+        if (a.WarrantyEndDate) {
+          const wDate = new Date(a.WarrantyEndDate);
+          if (!isNaN(wDate.getTime())) {
+            if (currentDate <= wDate) {
+              warrantyStatusBadge = `<span class="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-medium">🛡️ อยู่ในประกัน</span>`;
+            } else {
+              warrantyStatusBadge = `<span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600">หมดประกันแล้ว</span>`;
+            }
+          }
+        }
+
+        // แทรกรูปภาพอุปกรณ์ ถ้าไม่มีให้ใส่ภาพ Placeholder
+        const imgTag = a.ImageURL && String(a.ImageURL).trim() !== '' 
+          ? `<img src="${a.ImageURL}" alt="${a.AssetName}" class="w-12 h-12 object-cover rounded border border-gray-200 mx-auto" onError="this.onerror=null;this.src='https://placehold.co/100x100?text=No+Img';">`
+          : `<div class="w-12 h-12 bg-gray-100 rounded border border-gray-200 flex items-center justify-center text-gray-400 text-[10px] mx-auto">ไม่มีรูป</div>`;
+
+        return `
+          <tr class="hover:bg-gray-50">
+            <td class="p-3 font-mono text-xs text-gray-500">${a.AssetID || '-'}</td>
+            <td class="p-3 text-center">${imgTag}</td>
+            <td class="p-3 font-medium text-gray-800">${a.AssetName || '-'}</td>
+            <td class="p-3 text-xs">${a.AssetTypeCategory || '-'}</td>
+            <td class="p-3 font-mono">฿${(Number(a.AssetValue) || 0).toLocaleString()}</td>
+            <td class="p-3 font-mono text-xs text-gray-700">${usedYearsText}</td>
+            <td class="p-3 font-mono text-xs font-semibold text-gray-800">${expireYearText}</td>
+            <td class="p-3">${warrantyStatusBadge}</td>
+            <td class="p-3">${replacementRecommendation}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderMaintTable(maint) {
+      const tbody = document.getElementById("maintTableBody");
+      const roomMap = Object.fromEntries(DATA.rooms.map(r => [String(r.RoomID), r]));
+      tbody.innerHTML = maint.map(m => {
+        const room = roomMap[String(m.RoomID)] || {};
+        return `
+          <tr class="hover:bg-gray-50">
+            <td class="p-3 font-mono text-xs text-gray-500">${m.WoID || '-'}</td>
+            <td class="p-3 font-mono text-xs">${m.Date || '-'}</td>
+            <td class="p-3 font-medium text-gray-800">${m.Item || '-'}</td>
+            <td class="p-3">${room.RoomName || m.Room || '-'} (${room.Building || '-'})</td>
+            <td class="p-3"><span class="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800">${m.MaintenanceType || '-'}</span></td>
+            <td class="p-3">${m.Vendor || '-'}</td>
+            <td class="p-3 font-mono text-amber-700 font-semibold">฿${(Number(m.Cost) || 0).toLocaleString()}</td>
+            <td class="p-3 font-mono text-xs">${m.GL || '-'}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderCharts(assets, maint) {
+      const bMap = {};
+      maint.forEach(m => {
+        const room = DATA.rooms.find(r => String(r.RoomID) === String(m.RoomID));
+        const bName = room ? room.Building : "อื่นๆ";
+        const asset = assets.find(a => String(a.AssetID) === String(m.AssetID));
+        if (asset) {
+          bMap[bName] = (bMap[bName] || 0) + (Number(asset.AssetValue) || 0);
+        }
+      });
+
+      const tMap = {};
+      assets.forEach(a => {
+        if(a.AssetTypeCategory) tMap[a.AssetTypeCategory] = (tMap[a.AssetTypeCategory] || 0) + 1;
+      });
+
+      const glMap = {};
+      maint.forEach(m => {
+        if(m.GL) {
+          const label = String(m.GL);
+          glMap[label] = (glMap[label] || 0) + (Number(m.Cost) || 0);
+        }
+      });
+
+      if (chartBuilding) chartBuilding.destroy();
+      if (chartType) chartType.destroy();
+      if (chartGL) chartGL.destroy();
+
+      chartBuilding = new Chart(document.getElementById("chartBuilding"), {
+        type: 'bar',
+        data: { labels: Object.keys(bMap), datasets: [{ data: Object.values(bMap), backgroundColor: '#2F6F6A' }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      });
+
+      chartType = new Chart(document.getElementById("chartType"), {
+        type: 'doughnut',
+        data: { labels: Object.keys(tMap), datasets: [{ data: Object.values(tMap), backgroundColor: ['#2F6F6A', '#B8811F', '#8A5A9E', '#4A7FB5', '#E06D53'] }] },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+
+      chartGL = new Chart(document.getElementById("chartGL"), {
+        type: 'bar',
+        data: { labels: Object.keys(glMap), datasets: [{ data: Object.values(glMap), backgroundColor: '#B8811F' }] },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      });
+    }
+
+    function switchTab(tabName) {
+      ['rooms', 'assets', 'maint'].forEach(t => {
+        document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`).classList.add('hidden');
+        document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}Btn`).classList.remove('border-emerald-700', 'text-emerald-800');
+        document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}Btn`).classList.add('border-transparent', 'text-gray-500');
+      });
+
+      document.getElementById(`tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`).classList.remove('hidden');
+      document.getElementById(`tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}Btn`).classList.add('border-emerald-700', 'text-emerald-800');
+      document.getElementById(`tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}Btn`).classList.remove('border-transparent', 'text-gray-500');
+    }
+
+    window.onload = fetchSheetData;
+  </script>
+</body>
+</html>
