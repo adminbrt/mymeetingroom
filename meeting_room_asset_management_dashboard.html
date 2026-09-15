@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meeting Room & Asset Management Dashboard</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['IBM Plex Mono', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#F2F7F6',
+              100: '#E4EFEF',
+              500: '#2F6F6A',
+              600: '#255955',
+              700: '#1C4340',
+            },
+            amberBrand: '#B8811F',
+            dangerBrand: '#B4472F',
+            surfaceBg: '#EFEFEC',
+            cardBg: '#FFFFFF',
+            borderLine: '#D6D6CF',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #EFEFEC; }
+    ::-webkit-scrollbar-thumb { background: #C4C4BC; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #A0A096; }
+
+    /* Custom Transitions */
+    .tab-active {
+      border-bottom: 2.5px solid #2F6F6A;
+      color: #2F6F6A;
+      font-weight: 600;
+    }
+    .modal-backdrop {
+      background-color: rgba(28, 31, 30, 0.55);
+      backdrop-filter: blur(2px);
+    }
+  </style>
+</head>
+<body class="bg-surfaceBg text-[#1C1F1E] font-sans antialiased min-h-screen">
+
+  <script>
+    // Primary Dataset
+    const INITIAL_DATA = {
+      rooms: [
+        { id: "R001", building: "อาคารเทรดดิ้ง", floor: 1, name: "MeetingRoom 1", capacity: 10 },
+        { id: "R002", building: "อาคารเทรดดิ้ง", floor: 1, name: "MeetingRoom 2", capacity: 10 },
+        { id: "R003", building: "อาคารเทรดดิ้ง", floor: 1, name: "MeetingRoom 3", capacity: 10 },
+        { id: "R004", building: "อาคารสิงห์คอมเพล็กซ์", floor: 39, name: "MeetingRoom 3901", capacity: 17 },
+        { id: "R005", building: "อาคารสิงห์คอมเพล็กซ์", floor: 39, name: "MeetingRoom 3902", capacity: 11 },
+        { id: "R006", building: "อาคารสิงห์คอมเพล็กซ์", floor: 39, name: "MeetingRoom 3903", capacity: 9 },
+        { id: "R007", building: "อาคารสิงห์คอมเพล็กซ์", floor: 39, name: "MeetingRoom 3904", capacity: 25 },
+        { id: "R008", building: "คลังสาขาบางบัวทอง", floor: 2, name: "MeetingRoom 1", capacity: null },
+        { id: "R009", building: "คลังสาขาบางบัวทอง", floor: 2, name: "MeetingRoom 2", capacity: null },
+        { id: "R010", building: "คลังสาขาบางบัวทอง", floor: 2, name: "MeetingRoom 3", capacity: null },
+        { id: "R011", building: "คลังมีนบุรี", floor: 2, name: "MeetingRoom 1", capacity: null },
+        { id: "R012", building: "คลังทวีวัฒนา 1", floor: 2, name: "MeetingRoom 1", capacity: null },
+        { id: "R013", building: "คลังทวีวัฒนา 2", floor: 2, name: "MeetingRoom 1", capacity: null },
+        { id: "R014", building: "อาคารเทรดดิ้ง", floor: 1, name: "General", capacity: null },
+        { id: "R015", building: "อาคารสิงห์คอมเพล็กซ์", floor: 39, name: "General", capacity: null },
+        { id: "R016", building: "อาคารสิงห์คอมเพล็กซ์", floor: 39, name: "Co-Working Space", capacity: null }
+      ],
+      assets: [
+        { id: "A001", name: "TV Samsung 65 นิ้ว", type: "Display", category: "Asset", value: 15000.0, lifeYears: 5, status: "Active", roomId: "R001" },
+        { id: "A002", name: "LOGITECH MEETUP 2 CONFERENCECAM", type: "Video Conference", category: "Asset", value: 28080.0, lifeYears: 5, status: "Active", roomId: "R001" },
+        { id: "A003", name: "EAKER HDMI Wireless อะแดปเตอร์ต่อจอไร้สาย", type: "Display", category: "Cost", value: 2100.0, lifeYears: 5, status: "Active", roomId: "R001" },
+        { id: "A004", name: "LOGITECH Wireless Presenter Pointer R400", type: "Video Conference", category: "Cost", value: 1000.0, lifeYears: 5, status: "Active", roomId: "R001" },
+        { id: "A005", name: "UGREEN รุ่น US372 สายเพิ่มความยาว", type: "Accessory", category: "Cost", value: 300.0, lifeYears: 5, status: "Active", roomId: "R001" },
+        { id: "A006", name: "TV Samsung 65 นิ้ว", type: "Display", category: "Asset", value: 15000.0, lifeYears: 5, status: "Active", roomId: "R002" },
+        { id: "A007", name: "LOGITECH MEETUP 2 CONFERENCECAM", type: "Video Conference", category: "Asset", value: 28080.0, lifeYears: 5, status: "Active", roomId: "R002" },
+        { id: "A008", name: "EAKER HDMI Wireless อะแดปเตอร์ต่อจอไร้สาย", type: "Display", category: "Cost", value: 2100.0, lifeYears: 5, status: "Active", roomId: "R002" },
+        { id: "A009", name: "LOGITECH Wireless Presenter Pointer R400", type: "Video Conference", category: "Cost", value: 1000.0, lifeYears: 5, status: "Active", roomId: "R002" },
+        { id: "A010", name: "UGREEN รุ่น US372 สายเพิ่มความยาว", type: "Accessory", category: "Cost", value: 300.0, lifeYears: 5, status: "Active", roomId: "R002" },
+        { id: "A011", name: "TV Samsung 65 นิ้ว", type: "Display", category: "Asset", value: 15000.0, lifeYears: 5, status: "Active", roomId: "R003" },
+        { id: "A012", name: "LOGITECH MEETUP 2 CONFERENCECAM", type: "Video Conference", category: "Asset", value: 28080.0, lifeYears: 5, status: "Active", roomId: "R003" },
+        { id: "A013", name: "EAKER HDMI Wireless อะแดปเตอร์ต่อจอไร้สาย", type: "Display", category: "Cost", value: 2100.0, lifeYears: 5, status: "Active", roomId: "R003" },
+        { id: "A014", name: "LOGITECH Wireless Presenter Pointer R400", type: "Video Conference", category: "Cost", value: 1000.0, lifeYears: 5, status: "Active", roomId: "R003" },
+        { id: "A015", name: "UGREEN รุ่น US372 สายเพิ่มความยาว", type: "Accessory", category: "Cost", value: 300.0, lifeYears: 5, status: "Active", roomId: "R003" },
+        { id: "A016", name: "Projector Epson EB-L260F", type: "Display", category: "Asset", value: 65490.0, lifeYears: 5, status: "Active", roomId: "R004" },
+        { id: "A017", name: "LOGITECH Wireless Presenter Pointer R400", type: "Video Conference", category: "Cost", value: 1000.0, lifeYears: 5, status: "Active", roomId: "R004" },
+        { id: "A018", name: "UGREEN รุ่น US372 สายเพิ่มความยาว", type: "Accessory", category: "Cost", value: 300.0, lifeYears: 5, status: "Active", roomId: "R004" },
+        { id: "A019", name: "AVER Video Conference VC520 Pro2", type: "Video Conference", category: "Asset", value: 55000.0, lifeYears: 5, status: "Active", roomId: "R004" },
+        { id: "A020", name: "AVER Expansion Mic ไมโครโฟนขยายคู่พร้อมสายยาว 5 เมตร", type: "Video Conference", category: "Cost", value: 16822.43, lifeYears: 5, status: "Active", roomId: "R004" },
+        { id: "A021", name: "EAKER HDMI Wireless อะแดปเตอร์ต่อจอไร้สาย", type: "Display", category: "Cost", value: 1950.0, lifeYears: 5, status: "Active", roomId: "R004" },
+        { id: "A022", name: "Projector EPSON EB-695Wi", type: "Display", category: "Asset", value: null, lifeYears: 5, status: "Active", roomId: "R005" },
+        { id: "A023", name: "LOGITECH Wireless Presenter Pointer R400", type: "Video Conference", category: "Cost", value: 1000.0, lifeYears: 5, status: "Active", roomId: "R005" },
+        { id: "A024", name: "UGREEN รุ่น US372 สายเพิ่มความยาว", type: "Accessory", category: "Cost", value: 300.0, lifeYears: 5, status: "Active", roomId: "R005" },
+        { id: "A025", name: "LOGITECH MEETUP 2 CONFERENCECAM", type: "Video Conference", category: "Asset", value: 26400.0, lifeYears: 5, status: "Active", roomId: "R005" },
+        { id: "A026", name: "RALLY BAR REMOTE CONTROL", type: "Video Conference", category: "Cost", value: 2480.0, lifeYears: 5, status: "Active", roomId: "R005" },
+        { id: "A027", name: "EAKER HDMI Wireless อะแดปเตอร์ต่อจอไร้สาย", type: "Display", category: "Cost", value: 1950.0, lifeYears: 5, status: "Active", roomId: "R005" },
+        { id: "A028", name: "Projector Epson รุ่น EB-2155W", type: "Display", category: "Asset", value: null, lifeYears: 5, status: "Active", roomId: "R006" },
+        { id: "A029", name: "LOGITECH Wireless Presenter Pointer R400", type: "Video Conference", category: "Cost", value: 1000.0, lifeYears: 5, status: "Active", roomId: "R006" },
+        { id: "A030", name: "UGREEN รุ่น US372 สายเพิ่มความยาว", type: "Accessory", category: "Cost", value: 300.0, lifeYears: 5, status: "Active", roomId: "R006" },
+        { id: "A031", name: "LOGITECH MEETUP 2 CONFERENCECAM", type: "Video Conference", category: "Asset", value: 28090.0, lifeYears: 5, status: "Active", roomId: "R006" },
+        { id: "A032", name: "RALLY BAR REMOTE CONTROL", type: "Video Conference", category: "Cost", value: 2480.0, lifeYears: 5, status: "Active", roomId: "R006" },
+        { id: "A033", name: "EAKER HDMI Wireless อะแดปเตอร์ต่อจอไร้สาย", type: "Display", category: "Cost", value: 1950.0, lifeYears: 5, status: "Active", roomId: "R006" },
+        { id: "A034", name: "TV Samsung 98 นิ้ว", type: "Display", category: "Asset", value: 55500.0, lifeYears: 5, status: "Active", roomId: "R007" },
+        { id: "A035", name: "LOGITECH Wireless Presenter Pointer R400", type: "Video Conference", category: "Cost", value: 1000.0, lifeYears: 5, status: "Active", roomId: "R007" },
+        { id: "A036", name: "UGREEN รุ่น US372 สายเพิ่มความยาว", type: "Accessory", category: "Cost", value: 300.0, lifeYears: 5, status: "Active", roomId: "R007" },
+        { id: "A037", name: "LOGITECH GROUP CONFERENCECAM", type: "Video Conference", category: "Asset", value: 27800.0, lifeYears: 5, status: "Active", roomId: "R007" },
+        { id: "A038", name: "RALLY BAR REMOTE CONTROL", type: "Video Conference", category: "Cost", value: 2480.0, lifeYears: 5, status: "Active", roomId: "R007" },
+        { id: "A039", name: "จอ Digital Signage (Raspberry Pi 5)", type: "Display", category: "Cost", value: 39156.25, lifeYears: 5, status: "Active", roomId: "R007" },
+        { id: "A040", name: "EAKER HDMI Wireless อะแดปเตอร์ต่อจอไร้สาย", type: "Display", category: "Cost", value: 1950.0, lifeYears: 5, status: "Active", roomId: "R007" },
+        { id: "A041", name: "EAKER HDMI Wireless อะแดปเตอร์ต่อจอไร้สาย", type: "Display", category: "Cost", value: 2150.0, lifeYears: 5, status: "Active", roomId: "R016" }
+      ],
+      maintenance: [
+        { id: "WO001", roomId: "R003", assetId: "A028", date: "2025-03-13", vendor: "บจก. มหาจักรดีเวลอปเมนท์", item: "เปลี่ยนหลอดพร้อมทำความสะอาด 3903", cost: 10250.0, type: "Replacement", gl: "62303009-ค่าซ่อมแซม-อุปกรณ์เทคโนโลยีสารสนเทศ", warrantyEnd: "2025-03-13" },
+        { id: "WO002", roomId: "R007", assetId: "A039", date: "2026-06-22", vendor: "บจก. บุญรอดบริวเวอรี่", item: "ติดตั้งหน้าจอแสดงผลสถานะ 3904", cost: 39156.25, type: "Installation", gl: "62402002-ค่าบริการสำนักงาน", warrantyEnd: "2028-06-30" },
+        { id: "WO003", roomId: "R004", assetId: "A016", date: "2026-07-14", vendor: "บจก. เมโทรซิสเต็มส์คอร์ปอเรชั่น", item: "ซื้อเครื่องใหม่ รับประกัน 13/7/2030 หรือ 12,000 ชม 3901", cost: 65490.0, type: "Installation", gl: "12510009-เครื่องมือเครื่องใช้สำนักงาน", warrantyEnd: "2030-07-13" },
+        { id: "WO004", roomId: "R005", assetId: "A022", date: "2025-05-13", vendor: "บจก. มหาจักรดีเวลอปเมนท์", item: "ปากกา EASY INTERACTIVE PEN (ORANGE) 3902", cost: 1998.0, type: "Replacement", gl: "62701001-ค่าเครื่องใช้และวัสดุสิ้นเปลืองสำนักงาน", warrantyEnd: "2025-06-12" }
+      ]
+    };
+
+    // Global App State
+    let appState = {
+      rooms: [...INITIAL_DATA.rooms],
+      assets: [...INITIAL_DATA.assets],
+      maintenance: [...INITIAL_DATA.maintenance],
+      filters: {
+        building: 'All',
+        category: 'All',
+        type: 'All',
+        search: ''
+      },
+      currentTab: 'rooms',
+      selectedRoomId: null
+    };
+
+    // Helper Utility Functions
+    const fmtTHB = (val) => {
+      if (val === null || val === undefined) return "—";
+      return `฿${Number(val).toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+    };
+
+    const getRoomById = (id) => appState.rooms.find(r => r.id === id);
+    const getAssetById = (id) => appState.assets.find(a => a.id === id);
+
+    const isWarrantyValid = (dateStr) => {
+      if (!dateStr) return false;
+      const today = new Date("2026-09-15"); // Context fixed date
+      return new Date(dateStr) >= today;
+    };
+  </script>
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    
+    <!-- Top Bar -->
+    <header class="flex flex-col md:flex-row md:items-center md:justify-between pb-5 border-b border-borderLine gap-4">
+      <div>
+        <div class="font-mono text-xs tracking-wider text-gray-500 uppercase flex items-center gap-2">
+          <span class="inline-block w-2 h-2 rounded-full bg-brand-500"></span>
+          Facilities & AV Asset Management
+        </div>
+        <h1 class="text-2xl font-bold text-gray-900 mt-1">Meeting Room & Asset Dashboard</h1>
+        <p class="text-xs text-gray-500 mt-0.5">ระบบบริหารจัดการห้องประชุม อุปกรณ์เอวี ประวัติการซ่อมบำรุง และค่าใช้จ่าย</p>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center gap-2">
+        <button onclick="openAddMaintenanceModal()" class="flex items-center gap-1.5 bg-brand-500 hover:bg-brand-600 text-white text-xs font-medium px-3.5 py-2 rounded-md transition shadow-sm">
+          <i data-lucide="wrench" class="w-4 h-4"></i>
+          บันทึกการซ่อม/ติดตั้ง
+        </button>
+        <button onclick="openAddAssetModal()" class="flex items-center gap-1.5 bg-white border border-borderLine hover:bg-gray-100 text-gray-800 text-xs font-medium px-3.5 py-2 rounded-md transition">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          เพิ่มอุปกรณ์ใหม่
+        </button>
+      </div>
+    </header>
+
+    <!-- Filters Bar -->
+    <section class="mt-6 bg-cardBg border border-borderLine rounded-lg p-4 shadow-sm">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        
+        <!-- Search Input -->
+        <div class="relative">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-gray-400"></i>
+          <input 
+            type="text" 
+            id="searchInput" 
+            placeholder="ค้นหาชื่ออุปกรณ์, ห้อง หรือผู้รับเหมา..." 
+            oninput="handleSearchChange(this.value)"
+            class="w-full pl-9 pr-3 py-2 text-xs bg-surfaceBg border border-borderLine rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 text-gray-800"
+          />
+        </div>
+
+        <!-- Building Select -->
+        <div>
+          <select id="buildingFilter" onchange="handleFilterChange('building', this.value)" class="w-full py-2 px-3 text-xs bg-surfaceBg border border-borderLine rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 text-gray-800">
+            <option value="All">ทุกอาคาร (All Buildings)</option>
+          </select>
+        </div>
+
+        <!-- Category Select -->
+        <div>
+          <select id="categoryFilter" onchange="handleFilterChange('category', this.value)" class="w-full py-2 px-3 text-xs bg-surfaceBg border border-borderLine rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 text-gray-800">
+            <option value="All">ทุกหมวด (All Categories)</option>
+            <option value="Asset">Asset (สินทรัพย์)</option>
+            <option value="Cost">Cost (ค่าใช้จ่าย)</option>
+          </select>
+        </div>
+
+        <!-- Equipment Type Select -->
+        <div>
+          <select id="typeFilter" onchange="handleFilterChange('type', this.value)" class="w-full py-2 px-3 text-xs bg-surfaceBg border border-borderLine rounded-md focus:outline-none focus:ring-2 focus:ring-brand-500 text-gray-800">
+            <option value="All">ทุกประเภทอุปกรณ์ (All Types)</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <!-- Executive Summary KPIs -->
+    <section class="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="bg-cardBg border border-borderLine p-4 rounded-lg flex items-center justify-between">
+        <div>
+          <span class="text-xs text-gray-500 font-medium block">มูลค่าทรัพย์สินรวม</span>
+          <span id="kpiTotalValue" class="font-mono text-lg font-bold text-gray-900 mt-1 block">฿0</span>
+        </div>
+        <div class="p-2.5 bg-brand-50 rounded-md text-brand-500">
+          <i data-lucide="wallet" class="w-5 h-5"></i>
+        </div>
+      </div>
+
+      <div class="bg-cardBg border border-borderLine p-4 rounded-lg flex items-center justify-between">
+        <div>
+          <span class="text-xs text-gray-500 font-medium block">จำนวนห้องประชุม/พื้นที่</span>
+          <span id="kpiRoomCount" class="font-mono text-lg font-bold text-gray-900 mt-1 block">0 ห้อง</span>
+        </div>
+        <div class="p-2.5 bg-brand-50 rounded-md text-brand-500">
+          <i data-lucide="door-open" class="w-5 h-5"></i>
+        </div>
+      </div>
+
+      <div class="bg-cardBg border border-borderLine p-4 rounded-lg flex items-center justify-between">
+        <div>
+          <span class="text-xs text-gray-500 font-medium block">รายการไม่ระบุมูลค่า</span>
+          <span id="kpiMissingValue" class="font-mono text-lg font-bold text-dangerBrand mt-1 block">0 รายการ</span>
+        </div>
+        <div class="p-2.5 bg-red-50 rounded-md text-dangerBrand">
+          <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+        </div>
+      </div>
+
+      <div class="bg-cardBg border border-borderLine p-4 rounded-lg flex items-center justify-between">
+        <div>
+          <span class="text-xs text-gray-500 font-medium block">ค่าซ่อมแซม/ติดตั้งสะสม</span>
+          <span id="kpiTotalMaintenance" class="font-mono text-lg font-bold text-amberBrand mt-1 block">฿0</span>
+        </div>
+        <div class="p-2.5 bg-amber-50 rounded-md text-amberBrand">
+          <i data-lucide="wrench" class="w-5 h-5"></i>
+        </div>
+      </div>
+    </section>
+
+    <section class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="bg-cardBg border border-borderLine p-4 rounded-lg">
+        <h3 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3">มูลค่าทรัพย์สินตามอาคาร</h3>
+        <div class="h-48 relative">
+          <canvas id="buildingValueChart"></canvas>
+        </div>
+      </div>
+      <div class="bg-cardBg border border-borderLine p-4 rounded-lg">
+        <h3 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3">สัดส่วนประเภทอุปกรณ์</h3>
+        <div class="h-48 relative">
+          <canvas id="assetTypeChart"></canvas>
+        </div>
+      </div>
+      <div class="bg-cardBg border border-borderLine p-4 rounded-lg">
+        <h3 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3">สรุปค่าใช้จ่ายซ่อมแซมตาม GL</h3>
+        <div class="h-48 relative">
+          <canvas id="glCostChart"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <section class="mt-8">
+      <div class="border-b border-borderLine flex gap-6 text-sm">
+        <button id="tab-rooms" onclick="switchTab('rooms')" class="pb-2.5 px-1 font-medium text-gray-500 hover:text-gray-900 transition flex items-center gap-2 tab-active">
+          <i data-lucide="grid" class="w-4 h-4"></i>
+          ภาพรวมห้องประชุม (Rooms Explorer)
+        </button>
+        <button id="tab-assets" onclick="switchTab('assets')" class="pb-2.5 px-1 font-medium text-gray-500 hover:text-gray-900 transition flex items-center gap-2">
+          <i data-lucide="tv" class="w-4 h-4"></i>
+          รายการอุปกรณ์ทั้งหมด (<span id="assetCountBadge">0</span>)
+        </button>
+        <button id="tab-maintenance" onclick="switchTab('maintenance')" class="pb-2.5 px-1 font-medium text-gray-500 hover:text-gray-900 transition flex items-center gap-2">
+          <i data-lucide="history" class="w-4 h-4"></i>
+          ประวัติการซ่อมแซม & ติดตั้ง (<span id="maintCountBadge">0</span>)
+        </button>
+      </div>
+
+      <!-- Tab Content 1: Rooms Explorer View -->
+      <div id="view-rooms" class="mt-6">
+        <div id="roomsGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <!-- Room cards will be injected dynamically -->
+        </div>
+      </div>
+
+      <!-- Tab Content 2: Asset Management Table -->
+      <div id="view-assets" class="mt-6 hidden">
+        <div class="bg-cardBg border border-borderLine rounded-lg overflow-hidden shadow-sm">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-surfaceBg border-b border-borderLine text-gray-600 font-semibold uppercase tracking-wider">
+                <tr>
+                  <th class="py-3 px-4">Asset ID</th>
+                  <th class="py-3 px-4">ชื่ออุปกรณ์</th>
+                  <th class="py-3 px-4">ประเภท</th>
+                  <th class="py-3 px-4">หมวด</th>
+                  <th class="py-3 px-4">มูลค่า</th>
+                  <th class="py-3 px-4">ประจำห้อง</th>
+                  <th class="py-3 px-4">อาคาร</th>
+                  <th class="py-3 px-4 text-center">จัดการ</th>
+                </tr>
+              </thead>
+              <tbody id="assetsTableBody" class="divide-y divide-gray-100">
+                <!-- Assets injected dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Content 3: Maintenance & Work Order Table -->
+      <div id="view-maintenance" class="mt-6 hidden">
+        <div class="bg-cardBg border border-borderLine rounded-lg overflow-hidden shadow-sm">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead class="bg-surfaceBg border-b border-borderLine text-gray-600 font-semibold uppercase tracking-wider">
+                <tr>
+                  <th class="py-3 px-4">วันที่ / WO ID</th>
+                  <th class="py-3 px-4">รายละเอียดงาน</th>
+                  <th class="py-3 px-4">ห้องประชุม / อาคาร</th>
+                  <th class="py-3 px-4">ประเภทงาน</th>
+                  <th class="py-3 px-4">ผู้รับเหมา / Vendor</th>
+                  <th class="py-3 px-4">ค่าใช้จ่าย</th>
+                  <th class="py-3 px-4">การรับประกัน</th>
+                </tr>
+              </thead>
+              <tbody id="maintTableBody" class="divide-y divide-gray-100">
+                <!-- Maintenance items injected dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer Note -->
+    <footer class="mt-10 py-4 border-t border-borderLine text-center text-xs text-gray-400">
+      Meeting Room & AV Maintenance System &bull; ข้อมูลอ้างอิงจาก Service_Request.xlsx (Point-in-Time Export)
+    </footer>
+  </div>
+
+
+  <!-- Room Detail Modal -->
+  <div id="roomModal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg border border-borderLine shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+      <!-- Modal Header -->
+      <div class="p-4 bg-surfaceBg border-b border-borderLine flex items-center justify-between">
+        <div>
+          <span id="modalRoomBuilding" class="font-mono text-[10px] text-gray-500 uppercase tracking-wider">Building Name</span>
+          <h2 id="modalRoomTitle" class="text-lg font-bold text-gray-900">Meeting Room Detail</h2>
+        </div>
+        <button onclick="closeRoomModal()" class="p-1 text-gray-400 hover:text-gray-700 rounded-md">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-5 overflow-y-auto space-y-5">
+        <!-- Key Quick Stats -->
+        <div class="grid grid-cols-3 gap-3 bg-gray-50 p-3 rounded-md border border-gray-200 text-xs">
+          <div>
+            <span class="text-gray-500 block">ความจุผู้เข้าร่วม:</span>
+            <span id="modalRoomCap" class="font-bold text-gray-900">10 คน</span>
+          </div>
+          <div>
+            <span class="text-gray-500 block">อุปกรณ์ทั้งหมด:</span>
+            <span id="modalRoomAssetCount" class="font-bold text-gray-900">0 รายการ</span>
+          </div>
+          <div>
+            <span class="text-gray-500 block">มูลค่าอุปกรณ์รวม:</span>
+            <span id="modalRoomAssetVal" class="font-bold text-brand-500">฿0</span>
+          </div>
+        </div>
+
+        <!-- Equipment list in Room -->
+        <div>
+          <h3 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <i data-lucide="cpu" class="w-4 h-4 text-brand-500"></i>
+            รายการอุปกรณ์ประจำห้อง
+          </h3>
+          <div class="border border-borderLine rounded-md overflow-hidden">
+            <table class="w-full text-xs text-left">
+              <thead class="bg-gray-50 border-b border-borderLine">
+                <tr>
+                  <th class="py-2 px-3">ชื่ออุปกรณ์</th>
+                  <th class="py-2 px-3">ประเภท</th>
+                  <th class="py-2 px-3">มูลค่า</th>
+                </tr>
+              </thead>
+              <tbody id="modalRoomAssetsBody" class="divide-y divide-gray-100"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Maintenance History of Room -->
+        <div>
+          <h3 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <i data-lucide="wrench" class="w-4 h-4 text-amberBrand"></i>
+            ประวัติการซ่อมบำรุง / ติดตั้ง
+          </h3>
+          <div class="border border-borderLine rounded-md overflow-hidden">
+            <table class="w-full text-xs text-left">
+              <thead class="bg-gray-50 border-b border-borderLine">
+                <tr>
+                  <th class="py-2 px-3">วันที่</th>
+                  <th class="py-2 px-3">รายการ</th>
+                  <th class="py-2 px-3">ผู้รับเหมา</th>
+                  <th class="py-2 px-3">ค่าใช้จ่าย</th>
+                </tr>
+              </thead>
+              <tbody id="modalRoomMaintBody" class="divide-y divide-gray-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-3 bg-surfaceBg border-t border-borderLine flex justify-end">
+        <button onclick="closeRoomModal()" class="px-4 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-800 text-xs font-medium rounded-md">
+          ปิดหน้าต่าง
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Maintenance Ticket Modal -->
+  <div id="addMaintModal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg border border-borderLine shadow-xl w-full max-w-lg overflow-hidden">
+      <div class="p-4 bg-surfaceBg border-b border-borderLine flex items-center justify-between">
+        <h2 class="text-sm font-bold text-gray-900 flex items-center gap-2">
+          <i data-lucide="wrench" class="w-4 h-4 text-brand-500"></i>
+          บันทึกการซ่อมบำรุง / ติดตั้งใหม่
+        </h2>
+        <button onclick="closeAddMaintModal()" class="p-1 text-gray-400 hover:text-gray-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="addMaintForm" onsubmit="saveMaintenance(event)" class="p-4 space-y-3 text-xs">
+        <div>
+          <label class="block font-medium text-gray-700 mb-1">ห้องประชุม</label>
+          <select id="maintRoomSelect" required class="w-full p-2 border border-borderLine rounded-md bg-white">
+            <!-- Injected via JS -->
+          </select>
+        </div>
+        <div>
+          <label class="block font-medium text-gray-700 mb-1">รายละเอียดงาน / รายการซ่อม</label>
+          <input type="text" id="maintItemInput" required placeholder="เช่น เปลี่ยนหลอดไฟโปรเจคเตอร์" class="w-full p-2 border border-borderLine rounded-md" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-medium text-gray-700 mb-1">ประเภทงาน</label>
+            <select id="maintTypeSelect" class="w-full p-2 border border-borderLine rounded-md bg-white">
+              <option value="Replacement">Replacement (ซ่อมแซม/เปลี่ยน)</option>
+              <option value="Installation">Installation (ติดตั้งใหม่)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-medium text-gray-700 mb-1">จำนวนเงิน (บาท)</label>
+            <input type="number" id="maintCostInput" step="0.01" required placeholder="0.00" class="w-full p-2 border border-borderLine rounded-md" />
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-medium text-gray-700 mb-1">บริษัทผู้ให้บริการ (Vendor)</label>
+            <input type="text" id="maintVendorInput" required placeholder="ระบุชื่อบริษัท" class="w-full p-2 border border-borderLine rounded-md" />
+          </div>
+          <div>
+            <label class="block font-medium text-gray-700 mb-1">วันหมดประกัน</label>
+            <input type="date" id="maintWarrantyInput" class="w-full p-2 border border-borderLine rounded-md" />
+          </div>
+        </div>
+        <div>
+          <label class="block font-medium text-gray-700 mb-1">ผูกกับบัญชี GL</label>
+          <select id="maintGLSelect" class="w-full p-2 border border-borderLine rounded-md bg-white">
+            <option value="62303009-ค่าซ่อมแซม-อุปกรณ์เทคโนโลยีสารสนเทศ">62303009 - ค่าซ่อมแซม-อุปกรณ์เทคโนโลยีสารสนเทศ</option>
+            <option value="62402002-ค่าบริการสำนักงาน">62402002 - ค่าบริการสำนักงาน</option>
+            <option value="12510009-เครื่องมือเครื่องใช้สำนักงาน">12510009 - เครื่องมือเครื่องใช้สำนักงาน</option>
+            <option value="62701001-ค่าเครื่องใช้และวัสดุสิ้นเปลืองสำนักงาน">62701001 - ค่าเครื่องใช้และวัสดุสิ้นเปลืองสำนักงาน</option>
+          </select>
+        </div>
+
+        <div class="pt-3 border-t border-borderLine flex justify-end gap-2">
+          <button type="button" onclick="closeAddMaintModal()" class="px-3 py-1.5 border border-borderLine rounded-md hover:bg-gray-100">ยกเลิก</button>
+          <button type="submit" class="px-4 py-1.5 bg-brand-500 hover:bg-brand-600 text-white font-medium rounded-md">บันทึกข้อมูล</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Asset Modal -->
+  <div id="addAssetModal" class="fixed inset-0 z-50 hidden modal-backdrop flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg border border-borderLine shadow-xl w-full max-w-lg overflow-hidden">
+      <div class="p-4 bg-surfaceBg border-b border-borderLine flex items-center justify-between">
+        <h2 class="text-sm font-bold text-gray-900 flex items-center gap-2">
+          <i data-lucide="plus" class="w-4 h-4 text-brand-500"></i>
+          ลงทะเบียนอุปกรณ์ใหม่
+        </h2>
+        <button onclick="closeAddAssetModal()" class="p-1 text-gray-400 hover:text-gray-700">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="addAssetForm" onsubmit="saveAsset(event)" class="p-4 space-y-3 text-xs">
+        <div>
+          <label class="block font-medium text-gray-700 mb-1">ชื่ออุปกรณ์ / Asset Name</label>
+          <input type="text" id="assetNameInput" required placeholder="เช่น TV Samsung 75 นิ้ว" class="w-full p-2 border border-borderLine rounded-md" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-medium text-gray-700 mb-1">ประเภทอุปกรณ์</label>
+            <select id="assetTypeSelect" class="w-full p-2 border border-borderLine rounded-md bg-white">
+              <option value="Display">Display</option>
+              <option value="Video Conference">Video Conference</option>
+              <option value="Accessory">Accessory</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-medium text-gray-700 mb-1">หมวดบัญชี (Category)</label>
+            <select id="assetCatSelect" class="w-full p-2 border border-borderLine rounded-md bg-white">
+              <option value="Asset">Asset (สินทรัพย์)</option>
+              <option value="Cost">Cost (ค่าใช้จ่าย)</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-medium text-gray-700 mb-1">ห้องที่จัดตั้ง</label>
+            <select id="assetRoomSelect" class="w-full p-2 border border-borderLine rounded-md bg-white">
+              <!-- Injected via JS -->
+            </select>
+          </div>
+          <div>
+            <label class="block font-medium text-gray-700 mb-1">มูลค่า (บาท)</label>
+            <input type="number" id="assetValueInput" step="0.01" placeholder="ระบุ หรือเว้นว่างไว้" class="w-full p-2 border border-borderLine rounded-md" />
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-borderLine flex justify-end gap-2">
+          <button type="button" onclick="closeAddAssetModal()" class="px-3 py-1.5 border border-borderLine rounded-md hover:bg-gray-100">ยกเลิก</button>
+          <button type="submit" class="px-4 py-1.5 bg-brand-500 hover:bg-brand-600 text-white font-medium rounded-md">เพิ่มอุปกรณ์</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let buildingChartObj = null;
+    let assetTypeChartObj = null;
+    let glCostChartObj = null;
+
+    // Initialization on Page Load
+    window.onload = function() {
+      populateFilterOptions();
+      populateRoomDropdowns();
+      renderDashboard();
+      lucide.createIcons();
+    };
+
+    function populateFilterOptions() {
+      const buildings = [...new Set(appState.rooms.map(r => r.building))];
+      const types = [...new Set(appState.assets.map(a => a.type))];
+
+      const bSelect = document.getElementById('buildingFilter');
+      buildings.forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b;
+        opt.textContent = b;
+        bSelect.appendChild(opt);
+      });
+
+      const tSelect = document.getElementById('typeFilter');
+      types.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        tSelect.appendChild(opt);
+      });
+    }
+
+    function populateRoomDropdowns() {
+      const roomSelects = [document.getElementById('maintRoomSelect'), document.getElementById('assetRoomSelect')];
+      roomSelects.forEach(select => {
+        if (!select) return;
+        select.innerHTML = '';
+        appState.rooms.forEach(r => {
+          const opt = document.createElement('option');
+          opt.value = r.id;
+          opt.textContent = `${r.name} (${r.building})`;
+          select.appendChild(opt);
+        });
+      });
+    }
+
+    // Filter Trigger Handlers
+    function handleFilterChange(key, value) {
+      appState.filters[key] = value;
+      renderDashboard();
+    }
+
+    function handleSearchChange(query) {
+      appState.filters.search = query.trim().toLowerCase();
+      renderDashboard();
+    }
+
+    // Filter Logic
+    function getFilteredAssets() {
+      return appState.assets.filter(a => {
+        const room = getRoomById(a.roomId);
+        if (appState.filters.building !== 'All' && room?.building !== appState.filters.building) return false;
+        if (appState.filters.category !== 'All' && a.category !== appState.filters.category) return false;
+        if (appState.filters.type !== 'All' && a.type !== appState.filters.type) return false;
+        if (appState.filters.search) {
+          const matchName = a.name.toLowerCase().includes(appState.filters.search);
+          const matchRoom = room?.name.toLowerCase().includes(appState.filters.search);
+          if (!matchName && !matchRoom) return false;
+        }
+        return true;
+      });
+    }
+
+    function getFilteredMaintenance() {
+      return appState.maintenance.filter(m => {
+        const room = getRoomById(m.roomId);
+        if (appState.filters.building !== 'All' && room?.building !== appState.filters.building) return false;
+        if (appState.filters.search) {
+          const matchItem = m.item.toLowerCase().includes(appState.filters.search);
+          const matchVendor = m.vendor.toLowerCase().includes(appState.filters.search);
+          const matchRoom = room?.name.toLowerCase().includes(appState.filters.search);
+          if (!matchItem && !matchVendor && !matchRoom) return false;
+        }
+        return true;
+      });
+    }
+
+    function getFilteredRooms() {
+      return appState.rooms.filter(r => {
+        if (appState.filters.building !== 'All' && r.building !== appState.filters.building) return false;
+        if (appState.filters.search) {
+          const matchName = r.name.toLowerCase().includes(appState.filters.search);
+          const matchBldg = r.building.toLowerCase().includes(appState.filters.search);
+          if (!matchName && !matchBldg) return false;
+        }
+        return true;
+      });
+    }
+
+    // Render Master View
+    function renderDashboard() {
+      const filteredAssets = getFilteredAssets();
+      const filteredMaint = getFilteredMaintenance();
+      const filteredRooms = getFilteredRooms();
+
+      // Update KPI Metrics
+      const totalVal = filteredAssets.reduce((sum, a) => sum + (a.value || 0), 0);
+      const missingValCount = filteredAssets.filter(a => a.value === null || a.value === undefined).length;
+      const totalMaintCost = filteredMaint.reduce((sum, m) => sum + m.cost, 0);
+
+      document.getElementById('kpiTotalValue').textContent = fmtTHB(totalVal);
+      document.getElementById('kpiRoomCount').textContent = `${filteredRooms.length} ห้อง`;
+      document.getElementById('kpiMissingValue').textContent = `${missingValCount} รายการ`;
+      document.getElementById('kpiTotalMaintenance').textContent = fmtTHB(totalMaintCost);
+
+      document.getElementById('assetCountBadge').textContent = filteredAssets.length;
+      document.getElementById('maintCountBadge').textContent = filteredMaint.length;
+
+      // Update Sub Views
+      renderRoomsGrid(filteredRooms);
+      renderAssetsTable(filteredAssets);
+      renderMaintenanceTable(filteredMaint);
+
+      // Re-draw Analytical Charts
+      renderCharts();
+    }
+
+    function renderRoomsGrid(rooms) {
+      const container = document.getElementById('roomsGrid');
+      container.innerHTML = '';
+
+      if (rooms.length === 0) {
+        container.innerHTML = `<div class="col-span-full py-10 text-center text-gray-400 text-xs">ไม่พบข้อมูลห้องประชุมตรงตามตัวกรอง</div>`;
+        return;
+      }
+
+      rooms.forEach(room => {
+        const roomAssets = appState.assets.filter(a => a.roomId === room.id);
+        const assetValueSum = roomAssets.reduce((s, a) => s + (a.value || 0), 0);
+        const maintCount = appState.maintenance.filter(m => m.roomId === room.id).length;
+
+        const card = document.createElement('div');
+        card.className = "bg-cardBg border border-borderLine rounded-lg p-4 hover:shadow-md transition cursor-pointer flex flex-col justify-between";
+        card.onclick = () => openRoomModal(room.id);
+
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="font-mono text-[10px] bg-brand-50 text-brand-500 font-semibold px-2 py-0.5 rounded">
+                ${room.building}
+              </span>
+              <span class="text-xs text-gray-400 font-mono">ชั้น ${room.floor}</span>
+            </div>
+
+            <h4 class="text-sm font-bold text-gray-900 mt-2.5">${room.name}</h4>
+            <p class="text-xs text-gray-500 mt-0.5">
+              ${room.capacity ? `ความจุ: ${room.capacity} คน` : 'พื้นที่ส่วนกลาง / ไม่ระบุความจุ'}
+            </p>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-borderLine/60 grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span class="text-[10px] text-gray-400 block">จำนวนอุปกรณ์</span>
+              <span class="font-semibold text-gray-800">${roomAssets.length} ชิ้น</span>
+            </div>
+            <div>
+              <span class="text-[10px] text-gray-400 block">มูลค่าสินทรัพย์</span>
+              <span class="font-semibold text-brand-500">${fmtTHB(assetValueSum)}</span>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function renderAssetsTable(assets) {
+      const tbody = document.getElementById('assetsTableBody');
+      tbody.innerHTML = '';
+
+      if (assets.length === 0) {
+        tbody.innerHTML = `<tr><td colSpan="8" class="py-8 text-center text-gray-400">ไม่พบรายการอุปกรณ์</td></tr>`;
+        return;
+      }
+
+      assets.forEach(asset => {
+        const room = getRoomById(asset.roomId);
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-gray-50/80 transition";
+
+        tr.innerHTML = `
+          <td class="py-3 px-4 font-mono text-gray-500">${asset.id}</td>
+          <td class="py-3 px-4 font-medium text-gray-900">${asset.name}</td>
+          <td class="py-3 px-4 text-gray-600">${asset.type}</td>
+          <td class="py-3 px-4">
+            <span class="${asset.category === 'Asset' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-100 text-gray-600 border-gray-200'} border text-[10px] font-semibold px-2 py-0.5 rounded">
+              ${asset.category}
+            </span>
+          </td>
+          <td class="py-3 px-4 font-mono ${asset.value === null ? 'text-dangerBrand font-semibold' : 'text-gray-700'}">
+            ${asset.value === null ? 'ไม่ระบุ' : fmtTHB(asset.value)}
+          </td>
+          <td class="py-3 px-4 text-gray-600">${room?.name || '—'}</td>
+          <td class="py-3 px-4 text-gray-500">${room?.building || '—'}</td>
+          <td class="py-3 px-4 text-center">
+            <button onclick="openRoomModal('${asset.roomId}')" title="ดูห้องประชุมนี้" class="text-brand-500 hover:text-brand-700 p-1">
+              <i data-lucide="eye" class="w-4 h-4"></i>
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      lucide.createIcons();
+    }
+
+    function renderMaintenanceTable(maintList) {
+      const tbody = document.getElementById('maintTableBody');
+      tbody.innerHTML = '';
+
+      if (maintList.length === 0) {
+        tbody.innerHTML = `<tr><td colSpan="7" class="py-8 text-center text-gray-400">ไม่พบประวัติการซ่อมบำรุง</td></tr>`;
+        return;
+      }
+
+      maintList.forEach(maint => {
+        const room = getRoomById(maint.roomId);
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-gray-50/80 transition";
+
+        const validWarranty = isWarrantyValid(maint.warrantyEnd);
+
+        tr.innerHTML = `
+          <td class="py-3 px-4">
+            <span class="font-mono text-gray-900 font-medium block">${maint.date}</span>
+            <span class="font-mono text-[10px] text-gray-400">${maint.id}</span>
+          </td>
+          <td class="py-3 px-4 text-gray-900 font-medium">${maint.item}</td>
+          <td class="py-3 px-4 text-gray-600">
+            ${room?.name || '—'}
+            <span class="block text-[10px] text-gray-400">${room?.building || ''}</span>
+          </td>
+          <td class="py-3 px-4">
+            <span class="${maint.type === 'Installation' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'} text-[10px] font-semibold px-2 py-0.5 rounded">
+              ${maint.type}
+            </span>
+          </td>
+          <td class="py-3 px-4 text-gray-600">${maint.vendor}</td>
+          <td class="py-3 px-4 font-mono font-semibold text-gray-900">${fmtTHB(maint.cost)}</td>
+          <td class="py-3 px-4 font-mono">
+            <span class="${validWarranty ? 'text-emerald-600 font-semibold' : 'text-gray-400'} text-[11px] block">
+              ${maint.warrantyEnd || 'ไม่มี'}
+            </span>
+            ${maint.warrantyEnd ? `<span class="text-[9px] ${validWarranty ? 'text-emerald-500' : 'text-red-400'}">${validWarranty ? '(อยู่ในประกัน)' : '(หมดประกันแล้ว)'}</span>` : ''}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderCharts() {
+      // 1. Building Value Chart
+      const buildingMap = {};
+      appState.assets.forEach(a => {
+        const r = getRoomById(a.roomId);
+        if (r) {
+          buildingMap[r.building] = (buildingMap[r.building] || 0) + (a.value || 0);
+        }
+      });
+
+      const bLabels = Object.keys(buildingMap).map(b => b.length > 12 ? b.slice(0, 10) + '…' : b);
+      const bData = Object.values(buildingMap);
+
+      if (buildingChartObj) buildingChartObj.destroy();
+      const ctx1 = document.getElementById('buildingValueChart').getContext('2d');
+      buildingChartObj = new Chart(ctx1, {
+        type: 'bar',
+        data: {
+          labels: bLabels,
+          datasets: [{
+            data: bData,
+            backgroundColor: '#2F6F6A',
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { ticks: { callback: v => `${v/1000}k`, font: { size: 9 } } },
+            x: { ticks: { font: { size: 9 } } }
+          }
+        }
+      });
+
+      // 2. Asset Type Pie Chart
+      const typeMap = {};
+      appState.assets.forEach(a => {
+        typeMap[a.type] = (typeMap[a.type] || 0) + 1;
+      });
+
+      if (assetTypeChartObj) assetTypeChartObj.destroy();
+      const ctx2 = document.getElementById('assetTypeChart').getContext('2d');
+      assetTypeChartObj = new Chart(ctx2, {
+        type: 'doughnut',
+        data: {
+          labels: Object.keys(typeMap),
+          datasets: [{
+            data: Object.values(typeMap),
+            backgroundColor: ['#2F6F6A', '#B8811F', '#8A5A9E', '#4A7FB5', '#5B8C5A']
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 9 } } } }
+        }
+      });
+
+      // 3. GL Cost Chart
+      const glMap = {};
+      appState.maintenance.forEach(m => {
+        const name = m.gl.split('-')[1] || m.gl;
+        glMap[name] = (glMap[name] || 0) + m.cost;
+      });
+
+      if (glCostChartObj) glCostChartObj.destroy();
+      const ctx3 = document.getElementById('glCostChart').getContext('2d');
+      glCostChartObj = new Chart(ctx3, {
+        type: 'bar',
+        data: {
+          labels: Object.keys(glMap),
+          datasets: [{
+            data: Object.values(glMap),
+            backgroundColor: '#B8811F',
+            borderRadius: 4
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { ticks: { callback: v => `${v/1000}k`, font: { size: 9 } } },
+            y: { ticks: { font: { size: 8 } } }
+          }
+        }
+      });
+    }
+
+    function switchTab(tabName) {
+      appState.currentTab = tabName;
+      ['rooms', 'assets', 'maintenance'].forEach(t => {
+        const btn = document.getElementById(`tab-${t}`);
+        const view = document.getElementById(`view-${t}`);
+        if (t === tabName) {
+          btn.classList.add('tab-active');
+          view.classList.remove('hidden');
+        } else {
+          btn.classList.remove('tab-active');
+          view.classList.add('hidden');
+        }
+      });
+    }
+
+    function openRoomModal(roomId) {
+      const room = getRoomById(roomId);
+      if (!room) return;
+
+      document.getElementById('modalRoomBuilding').textContent = `${room.building} · ชั้น ${room.floor}`;
+      document.getElementById('modalRoomTitle').textContent = room.name;
+      document.getElementById('modalRoomCap').textContent = room.capacity ? `${room.capacity} คน` : 'ไม่ระบุ';
+
+      const roomAssets = appState.assets.filter(a => a.roomId === roomId);
+      const totalVal = roomAssets.reduce((s, a) => s + (a.value || 0), 0);
+      document.getElementById('modalRoomAssetCount').textContent = `${roomAssets.length} รายการ`;
+      document.getElementById('modalRoomAssetVal').textContent = fmtTHB(totalVal);
+
+      // Populate assets list
+      const assetsBody = document.getElementById('modalRoomAssetsBody');
+      assetsBody.innerHTML = roomAssets.length ? '' : `<tr><td colSpan="3" class="py-4 text-center text-gray-400">ไม่มีอุปกรณ์ในห้องนี้</td></tr>`;
+      roomAssets.forEach(a => {
+        assetsBody.innerHTML += `
+          <tr>
+            <td class="py-2 px-3 font-medium text-gray-900">${a.name}</td>
+            <td class="py-2 px-3 text-gray-500">${a.type}</td>
+            <td class="py-2 px-3 font-mono">${fmtTHB(a.value)}</td>
+          </tr>
+        `;
+      });
+
+      // Populate maintenance list
+      const roomMaint = appState.maintenance.filter(m => m.roomId === roomId);
+      const maintBody = document.getElementById('modalRoomMaintBody');
+      maintBody.innerHTML = roomMaint.length ? '' : `<tr><td colSpan="4" class="py-4 text-center text-gray-400">ไม่มีประวัติการซ่อมบำรุง</td></tr>`;
+      roomMaint.forEach(m => {
+        maintBody.innerHTML += `
+          <tr>
+            <td class="py-2 px-3 font-mono text-gray-500">${m.date}</td>
+            <td class="py-2 px-3 font-medium text-gray-900">${m.item}</td>
+            <td class="py-2 px-3 text-gray-500">${m.vendor}</td>
+            <td class="py-2 px-3 font-mono text-gray-900">${fmtTHB(m.cost)}</td>
+          </tr>
+        `;
+      });
+
+      document.getElementById('roomModal').classList.remove('hidden');
+    }
+
+    function closeRoomModal() {
+      document.getElementById('roomModal').classList.add('hidden');
+    }
+
+    function openAddMaintenanceModal() {
+      document.getElementById('addMaintModal').classList.remove('hidden');
+    }
+
+    function closeAddMaintModal() {
+      document.getElementById('addMaintModal').classList.add('hidden');
+    }
+
+    function saveMaintenance(e) {
+      e.preventDefault();
+      const newMaint = {
+        id: `WO00${appState.maintenance.length + 1}`,
+        roomId: document.getElementById('maintRoomSelect').value,
+        assetId: '',
+        date: new Date().toISOString().split('T')[0],
+        vendor: document.getElementById('maintVendorInput').value,
+        item: document.getElementById('maintItemInput').value,
+        cost: parseFloat(document.getElementById('maintCostInput').value) || 0,
+        type: document.getElementById('maintTypeSelect').value,
+        gl: document.getElementById('maintGLSelect').value,
+        warrantyEnd: document.getElementById('maintWarrantyInput').value || ''
+      };
+
+      appState.maintenance.unshift(newMaint);
+      closeAddMaintModal();
+      renderDashboard();
+      document.getElementById('addMaintForm').reset();
+    }
+
+    function openAddAssetModal() {
+      document.getElementById('addAssetModal').classList.remove('hidden');
+    }
+
+    function closeAddAssetModal() {
+      document.getElementById('addAssetModal').classList.add('hidden');
+    }
+
+    function saveAsset(e) {
+      e.preventDefault();
+      const valInput = document.getElementById('assetValueInput').value;
+      const newAsset = {
+        id: `A0${appState.assets.length + 1}`,
+        name: document.getElementById('assetNameInput').value,
+        type: document.getElementById('assetTypeSelect').value,
+        category: document.getElementById('assetCatSelect').value,
+        value: valInput !== '' ? parseFloat(valInput) : null,
+        lifeYears: 5,
+        status: 'Active',
+        roomId: document.getElementById('assetRoomSelect').value
+      };
+
+      appState.assets.unshift(newAsset);
+      closeAddAssetModal();
+      renderDashboard();
+      document.getElementById('addAssetForm').reset();
+    }
+  </script>
+</body>
+</html>
