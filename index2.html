@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meeting Room Asset & Maintenance Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #EFEFEC; color: #1C1F1E; }
+    .font-mono { font-family: 'IBM Plex Mono', monospace; }
+  </style>
+</head>
+<body class="p-6">
+  <div class="max-w-7xl mx-auto space-y-6">
+    <!-- Header -->
+    <header class="flex flex-col md:flex-row md:items-center justify-between border-b border-gray-300 pb-4">
+      <div>
+        <div class="font-mono text-xs text-emerald-800 tracking-wider uppercase font-semibold">FACILITIES · ASSET & MAINTENANCE DATA</div>
+        <h1 class="text-2xl font-bold text-gray-900 mt-1">Meeting Room Dashboard</h1>
+        <p class="text-xs text-gray-500 mt-1">ข้อมูลสรุปห้องประชุม 10+ ห้อง อุปกรณ์ประจำห้อง และประวัติการซ่อมบำรุง</p>
+      </div>
+      <div id="kpi-summary" class="mt-4 md:mt-0 flex gap-4 text-right">
+        <!-- JS Inject KPIs -->
+      </div>
+    </header>
+
+    <!-- Filters & Controls -->
+    <div class="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+      <div class="flex flex-wrap gap-3 items-center">
+        <select id="buildingFilter" onchange="filterData()" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-md p-2 focus:ring-emerald-500 focus:border-emerald-500">
+          <option value="All">ทุกอาคาร (All Buildings)</option>
+        </select>
+        <select id="typeFilter" onchange="filterData()" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-md p-2 focus:ring-emerald-500 focus:border-emerald-500">
+          <option value="All">ทุกประเภทอุปกรณ์ (All Types)</option>
+        </select>
+      </div>
+      <div class="w-full md:w-64">
+        <input type="text" id="searchInput" onkeyup="filterData()" placeholder="ค้นหาอุปกรณ์ หรือชื่อห้อง..." class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-md p-2 focus:ring-emerald-500 focus:border-emerald-500">
+      </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+        <h3 class="text-sm font-bold text-gray-700 mb-3">มูลค่าทรัพย์สินตามอาคาร (บาท)</h3>
+        <div class="h-52"><canvas id="chartBuilding"></canvas></div>
+      </div>
+      <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+        <h3 class="text-sm font-bold text-gray-700 mb-3">สัดส่วนประเภทอุปกรณ์</h3>
+        <div class="h-52"><canvas id="chartType"></canvas></div>
+      </div>
+      <div class="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+        <h3 class="text-sm font-bold text-gray-700 mb-3">ค่าใช้จ่ายการซ่อมบำรุงตาม GL</h3>
+        <div class="h-52"><canvas id="chartGL"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Main Content Tabs -->
+    <div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+      <div class="flex border-b border-gray-200 bg-gray-50">
+        <button id="tabRoomsBtn" onclick="switchTab('rooms')" class="px-6 py-3 font-semibold text-sm border-b-2 border-emerald-700 text-emerald-800">
+          ข้อมูลห้องประชุมและอุปกรณ์ (<span id="countRooms">0</span>)
+        </button>
+        <button id="tabAssetsBtn" onclick="switchTab('assets')" class="px-6 py-3 font-semibold text-sm text-gray-500 border-b-2 border-transparent hover:text-gray-700">
+          ตารางรายการอุปกรณ์ทั้งหมด (<span id="countAssets">0</span>)
+        </button>
+        <button id="tabMaintBtn" onclick="switchTab('maint')" class="px-6 py-3 font-semibold text-sm text-gray-500 border-b-2 border-transparent hover:text-gray-700">
+          ประวัติการซ่อมบำรุง (<span id="countMaint">0</span>)
+        </button>
+      </div>
+
+      <!-- Tab 1: Room Cards View -->
+      <div id="tabRooms" class="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Dynamic Cards -->
+      </div>
+
+      <!-- Tab 2: Asset Table -->
+      <div id="tabAssets" class="hidden overflow-x-auto">
+        <table class="w-full text-left text-sm text-gray-600">
+          <thead class="bg-gray-100 text-xs font-bold uppercase text-gray-600 border-b border-gray-200">
+            <tr>
+              <th class="p-3">Asset ID</th>
+              <th class="p-3">ชื่ออุปกรณ์</th>
+              <th class="p-3">ประเภท</th>
+              <th class="p-3">หมวดหมู่</th>
+              <th class="p-3">มูลค่า (บาท)</th>
+              <th class="p-3">ห้องประจำ</th>
+              <th class="p-3">อาคาร</th>
+            </tr>
+          </thead>
+          <tbody id="assetTableBody" class="divide-y divide-gray-200"></tbody>
+        </table>
+      </div>
+
+      <!-- Tab 3: Maintenance Table -->
+      <div id="tabMaint" class="hidden overflow-x-auto">
+        <table class="w-full text-left text-sm text-gray-600">
+          <thead class="bg-gray-100 text-xs font-bold uppercase text-gray-600 border-b border-gray-200">
+            <tr>
+              <th class="p-3">วันที่</th>
+              <th class="p-3">รายการซ่อม/ติดตั้ง</th>
+              <th class="p-3">ห้อง / อาคาร</th>
+              <th class="p-3">ประเภทงาน</th>
+              <th class="p-3">ผู้รับเหมา/ผู้ให้บริการ</th>
+              <th class="p-3">ค่าใช้จ่าย (บาท)</th>
+              <th class="p-3">ประกันถึง</th>
+            </tr>
+          </thead>
+          <tbody id="maintTableBody" class="divide-y divide-gray-200"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const DATA = {
+      rooms: [
+        { id: "R001", building: "อาคารเทรดดิ้ง", floor: 1, name: "MeetingRoom 1", capacity: 10 },
+        { id: "R002", building: "อาคารเทรดดิ้ง", floor: 1, name: "MeetingRoom 2", capacity: 10 },
+        { id: "R003", building: "อาคารเทรดดิ้ง", floor: 1, name: "MeetingRoom 3", capacity: 10 },
+        { id: "R004", building: "อาคารสิงห์คอมเพล็กซ์", floor: 39, name: "MeetingRoom 3901", capacity: 17 },
+        { id: "R005", building: "อาคารสิงห์คอมเพล็กซ์", floor: 39, name: "MeetingRoom 3902", capacity: 11 },
+        { id: "R006", building: "อาคารสิงห์คอมเพล็กซ์", floor: 39, name: "MeetingRoom 3903", capacity: 9 },
+        { id: "R007", building: "อาคารสิงห์คอมเพล็กซ์", floor: 39, name: "MeetingRoom 3904", capacity: 25 },
+        { id: "R008", building: "คลังสาขาบางบัวทอง", floor: 2, name: "MeetingRoom 1", capacity: 8 },
+        { id: "R009", building: "คลังสาขาบางบัวทอง", floor: 2, name: "MeetingRoom 2", capacity: 8 },
+        { id: "R010", building: "คลังสาขาบางบัวทอง", floor: 2, name: "MeetingRoom 3", capacity: 12 },
+        { id: "R011", building: "คลังมีนบุรี", floor: 2, name: "MeetingRoom 1", capacity: 10 },
+        { id: "R012", building: "คลังทวีวัฒนา 1", floor: 2, name: "MeetingRoom 1", capacity: 10 },
+        { id: "R013", building: "คลังทวีวัฒนา 2", floor: 2, name: "MeetingRoom 1", capacity: 10 },
+        { id: "R016", building: "อาคารสิงห์คอมเพล็กซ์", floor: 39, name: "Co-Working Space", capacity: 30 }
+      ],
+      assets: [
+        // R001
+        { id: "A001", name: "TV Samsung 65 นิ้ว", type: "Display", category: "Asset", value: 15000, roomId: "R001" },
+        { id: "A002", name: "LOGITECH MEETUP 2 CONFERENCECAM", type: "Video Conference", category: "Asset", value: 28080, roomId: "R001" },
+        { id: "A003", name: "EAKER HDMI Wireless อะแดปเตอร์ต่อจอไร้สาย", type: "Display", category: "Cost", value: 2100, roomId: "R001" },
+        { id: "A004", name: "LOGITECH Wireless Presenter Pointer R400", type: "Video Conference", category: "Cost", value: 1000, roomId: "R001" },
+        { id: "A005", name: "UGREEN สายเพิ่มความยาว US372", type: "Accessory", category: "Cost", value: 300, roomId: "R001" },
+        // R002
+        { id: "A006", name: "TV Samsung 65 นิ้ว", type: "Display", category: "Asset", value: 15000, roomId: "R002" },
+        { id: "A007", name: "LOGITECH MEETUP 2 CONFERENCECAM", type: "Video Conference", category: "Asset", value: 28080, roomId: "R002" },
+        { id: "A008", name: "EAKER HDMI Wireless อะแดปเตอร์ต่อจอไร้สาย", type: "Display", category: "Cost", value: 2100, roomId: "R002" },
+        { id: "A009", name: "LOGITECH Wireless Presenter Pointer R400", type: "Video Conference", category: "Cost", value: 1000, roomId: "R002" },
+        { id: "A010", name: "UGREEN สายเพิ่มความยาว US372", type: "Accessory", category: "Cost", value: 300, roomId: "R002" },
+        // R003
+        { id: "A011", name: "TV Samsung 65 นิ้ว", type: "Display", category: "Asset", value: 15000, roomId: "R003" },
+        { id: "A012", name: "LOGITECH MEETUP 2 CONFERENCECAM", type: "Video Conference", category: "Asset", value: 28080, roomId: "R003" },
+        { id: "A013", name: "EAKER HDMI Wireless อะแดปเตอร์ต่อจอไร้สาย", type: "Display", category: "Cost", value: 2100, roomId: "R003" },
+        { id: "A014", name: "LOGITECH Wireless Presenter Pointer R400", type: "Video Conference", category: "Cost", value: 1000, roomId: "R003" },
+        { id: "A015", name: "UGREEN สายเพิ่มความยาว US372", type: "Accessory", category: "Cost", value: 300, roomId: "R003" },
+        // R004
+        { id: "A016", name: "Projector Epson EB-L260F", type: "Display", category: "Asset", value: 65490, roomId: "R004" },
+        { id: "A017", name: "LOGITECH Wireless Presenter Pointer R400", type: "Video Conference", category: "Cost", value: 1000, roomId: "R004" },
+        { id: "A018", name: "UGREEN สายเพิ่มความยาว US372", type: "Accessory", category: "Cost", value: 300, roomId: "R004" },
+        { id: "A019", name: "AVER Video Conference VC520 Pro2", type: "Video Conference", category: "Asset", value: 55000, roomId: "R004" },
+        { id: "A020", name: "AVER Expansion Mic ไมโครโฟนขยายคู่ 5m", type: "Video Conference", category: "Cost", value: 16822.43, roomId: "R004" },
+        { id: "A021", name: "EAKER HDMI Wireless อะแดปเตอร์ต่อจอไร้สาย", type: "Display", category: "Cost", value: 1950, roomId: "R004" },
+        // R005
+        { id: "A022", name: "Projector EPSON EB-695Wi", type: "Display", category: "Asset", value: 45000, roomId: "R005" },
+        { id: "A023", name: "LOGITECH Wireless Presenter Pointer R400", type: "Video Conference", category: "Cost", value: 1000, roomId: "R005" },
+        { id: "A024", name: "UGREEN สายเพิ่มความยาว US372", type: "Accessory", category: "Cost", value: 300, roomId: "R005" },
+        { id: "A025", name: "LOGITECH MEETUP 2 CONFERENCECAM", type: "Video Conference", category: "Asset", value: 26400, roomId: "R005" },
+        { id: "A026", name: "RALLY BAR REMOTE CONTROL", type: "Video Conference", category: "Cost", value: 2480, roomId: "R005" },
+        { id: "A027", name: "EAKER HDMI Wireless อะแดปเตอร์ต่อจอไร้สาย", type: "Display", category: "Cost", value: 1950, roomId: "R005" },
+        // R006
+        { id: "A028", name: "Projector Epson รุ่น EB-2155W", type: "Display", category: "Asset", value: 38000, roomId: "R006" },
+        { id: "A029", name: "LOGITECH Wireless Presenter Pointer R400", type: "Video Conference", category: "Cost", value: 1000, roomId: "R006" },
+        { id: "A030", name: "UGREEN สายเพิ่มความยาว US372", type: "Accessory", category: "Cost", value: 300, roomId: "R006" },
+        { id: "A031", name: "LOGITECH MEETUP 2 CONFERENCECAM", type: "Video Conference", category: "Asset", value: 28090, roomId: "R006" },
+        { id: "A032", name: "RALLY BAR REMOTE CONTROL", type: "Video Conference", category: "Cost", value: 2480, roomId: "R006" },
+        { id: "A033", name: "EAKER HDMI Wireless อะแดปเตอร์ต่อจอไร้สาย", type: "Display", category: "Cost", value: 1950, roomId: "R006" },
+        // R007
+        { id: "A034", name: "TV Samsung 98 นิ้ว", type: "Display", category: "Asset", value: 55500, roomId: "R007" },
+        { id: "A035", name: "LOGITECH Wireless Presenter Pointer R400", type: "Video Conference", category: "Cost", value: 1000, roomId: "R007" },
+        { id: "A036", name: "UGREEN สายเพิ่มความยาว US372", type: "Accessory", category: "Cost", value: 300, roomId: "R007" },
+        { id: "A037", name: "LOGITECH GROUP CONFERENCECAM", type: "Video Conference", category: "Asset", value: 27800, roomId: "R007" },
+        { id: "A038", name: "RALLY BAR REMOTE CONTROL", type: "Video Conference", category: "Cost", value: 2480, roomId: "R007" },
+        { id: "A039", name: "จอ Digital Signage (Raspberry Pi 5)", type: "Display", category: "Cost", value: 39156.25, roomId: "R007" },
+        { id: "A040", name: "EAKER HDMI Wireless อะแดปเตอร์ต่อจอไร้สาย", type: "Display", category: "Cost", value: 1950, roomId: "R007" },
+        // R008
+        { id: "A042", name: "TV Samsung 55 นิ้ว", type: "Display", category: "Asset", value: 12900, roomId: "R008" },
+        { id: "A043", name: "LOGITECH MEETUP 2 CONFERENCECAM", type: "Video Conference", category: "Asset", value: 28080, roomId: "R008" },
+        { id: "A044", name: "EAKER HDMI Wireless อะแดปเตอร์ต่อจอไร้สาย", type: "Display", category: "Cost", value: 2150, roomId: "R008" },
+        // R009
+        { id: "A045", name: "TV Samsung 55 นิ้ว", type: "Display", category: "Asset", value: 12900, roomId: "R009" },
+        { id: "A046", name: "LOGITECH MEETUP 2 CONFERENCECAM", type: "Video Conference", category: "Asset", value: 28080, roomId: "R009" },
+        // R010
+        { id: "A047", name: "TV Samsung 65 นิ้ว", type: "Display", category: "Asset", value: 15000, roomId: "R010" },
+        { id: "A048", name: "LOGITECH GROUP CONFERENCECAM", type: "Video Conference", category: "Asset", value: 27800, roomId: "R010" },
+        // R011
+        { id: "A049", name: "TV Samsung 55 นิ้ว", type: "Display", category: "Asset", value: 12900, roomId: "R011" },
+        { id: "A050", name: "LOGITECH GROUP CONFERENCECAM", type: "Video Conference", category: "Asset", value: 27800, roomId: "R011" },
+        // R012
+        { id: "A051", name: "TV Samsung 55 นิ้ว", type: "Display", category: "Asset", value: 12900, roomId: "R012" },
+        { id: "A052", name: "LOGITECH GROUP CONFERENCECAM", type: "Video Conference", category: "Asset", value: 27800, roomId: "R012" },
+        // R013
+        { id: "A053", name: "TV Samsung 55 นิ้ว", type: "Display", category: "Asset", value: 12900, roomId: "R013" },
+        { id: "A054", name: "LOGITECH GROUP CONFERENCECAM", type: "Video Conference", category: "Asset", value: 27800, roomId: "R013" },
+        // R016
+        { id: "A041", name: "EAKER HDMI Wireless อะแดปเตอร์ต่อจอไร้สาย", type: "Display", category: "Cost", value: 2150, roomId: "R016" }
+      ],
+      maintenance: [
+        { id: "WO001", roomId: "R003", date: "2025-03-13", vendor: "บจก. มหาจักรดีเวลอปเมนท์", item: "เปลี่ยนหลอดโปรเจกเตอร์พร้อมทำความสะอาด", cost: 10250, type: "Replacement", gl: "62303009-ค่าซ่อมแซม-อุปกรณ์ IT", warrantyEnd: "2025-03-13" },
+        { id: "WO002", roomId: "R007", date: "2026-06-22", vendor: "บจก. บุญรอดบริวเวอรี่", item: "ติดตั้งหน้าจอแสดงผลสถานะ 3904", cost: 39156.25, type: "Installation", gl: "62402002-ค่าบริการสำนักงาน", warrantyEnd: "2028-06-30" },
+        { id: "WO003", roomId: "R004", date: "2026-07-14", vendor: "บจก. เมโทรซิสเต็มส์คอร์ปอเรชั่น", item: "ซื้อโปรเจกเตอร์เครื่องใหม่ EB-L260F", cost: 65490, type: "Installation", gl: "12510009-เครื่องมือเครื่องใช้สำนักงาน", warrantyEnd: "2030-07-13" },
+        { id: "WO004", roomId: "R005", date: "2025-05-13", vendor: "บจก. มหาจักรดีเวลอปเมนท์", item: "ซื้อปากกา EASY INTERACTIVE PEN (ORANGE)", cost: 1998, type: "Replacement", gl: "62701001-ค่าวัสดุสิ้นเปลือง", warrantyEnd: "2025-06-12" }
+      ]
+    };
+
+    let chartBuilding, chartType, chartGL;
+
+    function init() {
+      populateFilters();
+      filterData();
+    }
+
+    function populateFilters() {
+      const buildings = [...new Set(DATA.rooms.map(r => r.building))];
+      const types = [...new Set(DATA.assets.map(a => a.type))];
+
+      const bSelect = document.getElementById("buildingFilter");
+      buildings.forEach(b => bSelect.innerHTML += `<option value="${b}">${b}</option>`);
+
+      const tSelect = document.getElementById("typeFilter");
+      types.forEach(t => tSelect.innerHTML += `<option value="${t}">${t}</option>`);
+    }
+
+    function filterData() {
+      const bVal = document.getElementById("buildingFilter").value;
+      const tVal = document.getElementById("typeFilter").value;
+      const sVal = document.getElementById("searchInput").value.toLowerCase();
+
+      const filteredRooms = DATA.rooms.filter(r => bVal === "All" || r.building === bVal);
+      const roomIds = new Set(filteredRooms.map(r => r.id));
+
+      const filteredAssets = DATA.assets.filter(a => {
+        const matchesRoom = roomIds.has(a.roomId);
+        const matchesType = tVal === "All" || a.type === tVal;
+        const matchesSearch = a.name.toLowerCase().includes(sVal) || a.id.toLowerCase().includes(sVal);
+        return matchesRoom && matchesType && matchesSearch;
+      });
+
+      const filteredMaint = DATA.maintenance.filter(m => roomIds.has(m.roomId));
+
+      updateKPIs(filteredAssets, filteredMaint, filteredRooms);
+      renderRoomCards(filteredRooms, filteredAssets, filteredMaint);
+      renderAssetTable(filteredAssets);
+      renderMaintTable(filteredMaint);
+      renderCharts(filteredAssets, filteredMaint);
+    }
+
+    function updateKPIs(assets, maint, rooms) {
+      const totalAssetVal = assets.reduce((s, a) => s + (a.value || 0), 0);
+      const totalMaintCost = maint.reduce((s, m) => s + m.cost, 0);
+
+      document.getElementById("kpi-summary").innerHTML = `
+        <div class="bg-white p-2 px-3 rounded border border-gray-200 shadow-sm">
+          <div class="text-xs text-gray-500">มูลค่าทรัพย์สินรวม</div>
+          <div class="text-base font-bold font-mono text-emerald-700">฿${totalAssetVal.toLocaleString()}</div>
+        </div>
+        <div class="bg-white p-2 px-3 rounded border border-gray-200 shadow-sm">
+          <div class="text-xs text-gray-500">ค่าซ่อม/ติดตั้งรวม</div>
+          <div class="text-base font-bold font-mono text-amber-600">฿${totalMaintCost.toLocaleString()}</div>
+        </div>
+      `;
+
+      document.getElementById("countRooms").innerText = rooms.length;
+      document.getElementById("countAssets").innerText = assets.length;
+      document.getElementById("countMaint").innerText = maint.length;
+    }
+
+    function renderRoomCards(rooms, assets, maint) {
+      const container = document.getElementById("tabRooms");
+      container.innerHTML = "";
+
+      rooms.forEach(r => {
+        const roomAssets = assets.filter(a => a.roomId === r.id);
+        const roomMaint = maint.filter(m => m.roomId === r.id);
+        const totalVal = roomAssets.reduce((s, a) => s + (a.value || 0), 0);
+
+        let assetListHtml = roomAssets.map(a => `
+          <li class="flex justify-between items-center text-xs py-1 border-b border-gray-100">
+            <span class="text-gray-700 truncate max-w-[200px]" title="${a.name}">${a.name}</span>
+            <span class="font-mono text-gray-500">฿${(a.value || 0).toLocaleString()}</span>
+          </li>
+        `).join("");
+
+        if (roomAssets.length === 0) {
+          assetListHtml = `<li class="text-xs text-gray-400 italic py-2">ไม่มีอุปกรณ์ตามเงื่อนไขที่ค้นหา</li>`;
+        }
+
+        container.innerHTML += `
+          <div class="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition">
+            <div class="flex justify-between items-start mb-2">
+              <div>
+                <span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">${r.building} · ชั้น ${r.floor}</span>
+                <h3 class="text-base font-bold text-gray-800 mt-1">${r.name}</h3>
+              </div>
+              <span class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded font-medium">${r.capacity ? r.capacity + ' ที่นั่ง' : 'ไม่ระบุ'}</span>
+            </div>
+
+            <div class="my-3 pt-2 border-t border-gray-100">
+              <div class="text-xs font-semibold text-gray-500 mb-1 flex justify-between">
+                <span>อุปกรณ์ภายในห้อง (${roomAssets.length})</span>
+                <span class="font-mono text-emerald-800">รวม ฿${totalVal.toLocaleString()}</span>
+              </div>
+              <ul class="max-h-36 overflow-y-auto pr-1">
+                ${assetListHtml}
+              </ul>
+            </div>
+
+            ${roomMaint.length > 0 ? `
+              <div class="mt-2 pt-2 border-t border-dashed border-amber-200 bg-amber-50/50 p-2 rounded">
+                <div class="text-xs font-bold text-amber-800">ประวัติการซ่อม/ติดตั้ง (${roomMaint.length})</div>
+                <div class="text-xs text-amber-900 truncate">${roomMaint[0].item} (฿${roomMaint[0].cost.toLocaleString()})</div>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      });
+    }
+
+    function renderAssetTable(assets) {
+      const tbody = document.getElementById("assetTableBody");
+      const roomMap = Object.fromEntries(DATA.rooms.map(r => [r.id, r]));
+      tbody.innerHTML = assets.map(a => {
+        const room = roomMap[a.roomId] || {};
+        return `
+          <tr class="hover:bg-gray-50">
+            <td class="p-3 font-mono text-xs text-gray-500">${a.id}</td>
+            <td class="p-3 font-medium text-gray-800">${a.name}</td>
+            <td class="p-3">${a.type}</td>
+            <td class="p-3"><span class="text-xs px-2 py-0.5 rounded ${a.category === 'Asset' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'}">${a.category}</span></td>
+            <td class="p-3 font-mono">฿${(a.value || 0).toLocaleString()}</td>
+            <td class="p-3">${room.name || '-'}</td>
+            <td class="p-3">${room.building || '-'}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderMaintTable(maint) {
+      const tbody = document.getElementById("maintTableBody");
+      const roomMap = Object.fromEntries(DATA.rooms.map(r => [r.id, r]));
+      tbody.innerHTML = maint.map(m => {
+        const room = roomMap[m.roomId] || {};
+        return `
+          <tr class="hover:bg-gray-50">
+            <td class="p-3 font-mono text-xs">${m.date}</td>
+            <td class="p-3 font-medium text-gray-800">${m.item}</td>
+            <td class="p-3">${room.name || '-'} (${room.building || '-'})</td>
+            <td class="p-3"><span class="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-800">${m.type}</span></td>
+            <td class="p-3">${m.vendor}</td>
+            <td class="p-3 font-mono text-amber-700 font-semibold">฿${m.cost.toLocaleString()}</td>
+            <td class="p-3 font-mono text-xs">${m.warrantyEnd}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderCharts(assets, maint) {
+      const bMap = {};
+      assets.forEach(a => {
+        const room = DATA.rooms.find(r => r.id === a.roomId);
+        const bName = room ? room.building : "อื่นๆ";
+        bMap[bName] = (bMap[bName] || 0) + (a.value || 0);
+      });
+
+      const tMap = {};
+      assets.forEach(a => { tMap[a.type] = (tMap[a.type] || 0) + 1; });
+
+      const glMap = {};
+      maint.forEach(m => {
+        const label = m.gl.split("-")[1] || m.gl;
+        glMap[label] = (glMap[label] || 0) + m.cost;
+      });
+
+      if (chartBuilding) chartBuilding.destroy();
+      if (chartType) chartType.destroy();
+      if (chartGL) chartGL.destroy();
+
+      chartBuilding = new Chart(document.getElementById("chartBuilding"), {
+        type: 'bar',
+        data: {
+          labels: Object.keys(bMap),
+          datasets: [{ data: Object.values(bMap), backgroundColor: '#2F6F6A' }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      });
+
+      chartType = new Chart(document.getElementById("chartType"), {
+        type: 'doughnut',
+        data: {
+          labels: Object.keys(tMap),
+          datasets: [{ data: Object.values(tMap), backgroundColor: ['#2F6F6A', '#B8811F', '#8A5A9E', '#4A7FB5'] }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+
+      chartGL = new Chart(document.getElementById("chartGL"), {
+        type: 'bar',
+        data: {
+          labels: Object.keys(glMap),
+          datasets: [{ data: Object.values(glMap), backgroundColor: '#B8811F' }]
+        },
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      });
+    }
+
+    function switchTab(tabName) {
+      ['rooms', 'assets', 'maint'].forEach(t => {
+        document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`).classList.add('hidden');
+        document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}Btn`).classList.remove('border-emerald-700', 'text-emerald-800');
+        document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}Btn`).classList.add('border-transparent', 'text-gray-500');
+      });
+
+      document.getElementById(`tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`).classList.remove('hidden');
+      document.getElementById(`tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}Btn`).classList.add('border-emerald-700', 'text-emerald-800');
+      document.getElementById(`tab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}Btn`).classList.remove('border-transparent', 'text-gray-500');
+    }
+
+    window.onload = init;
+  </script>
+</body>
+</html>
